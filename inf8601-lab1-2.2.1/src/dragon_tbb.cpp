@@ -133,14 +133,14 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
  */
 int dragon_limits_tbb(limits_t *limits, uint64_t size, int nb_thread)
 {
-  //TODO("dragon_limits_tbb");
+  TODO("dragon_limits_tbb");
   
   task_scheduler_init init(nb_thread);
 
   piece_t piece;
   piece_init(&piece);
   DragonLimits lim(size, &piece);
-  tbb::parallel_reduce( blocked_range<int>(0, size), lim);
+  //tbb::parallel_reduce( blocked_range<int>(0, size), lim);
 	
 
 	
