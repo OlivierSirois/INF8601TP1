@@ -162,7 +162,7 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	for(i = 0; i< nb_thread; i++){
 	  code_erreur = pthread_join(threads[i], &status);
 	  if(code_erreur){
-		printf("erreur dans le join de la thread %d dans draw_dragon_pthread, erreur code %d \n", i, code_erreur);
+		printf("erreur dans le join de la thread %d dans draw_dragon_pthread, code %d \n", i, code_erreur);
 	  }
 	}
 	scale_dragon(0, height, image, width, height, dragon, info.dragon_width, info.dragon_height, palette);
