@@ -19,26 +19,28 @@ extern "C" {
 using namespace std;
 using namespace tbb;
 
+TidMap* tid;
+
 
 class DragonLimits {
 	public:
-		DragonLimits()
+		DragonLimits ()
 		{
 			piece_init(&p);
 		}
-		DragonLimits(DragonLimits& d, split)
+		DragonLimits (DragonLimits& d, sep)
 		{
 			piece_init(&p);
 		}
-		void operator()(const blocked_range<int>& r)
+		void operator() (const blocked_range<int>& r)
 		{
 			piece_limit(r.begin(), r.end(), &p);
 		}
-		void join(DragonLimits& j)
+		void join (DragonLimits& j)
 		{
 			piece_merge(&p, j.p);
 		}
-		piece_t& getPiece()
+		piece_t& getPiece ()
 		{
 			return p;
 		}
@@ -75,6 +77,7 @@ class DragonRender
 		DragonRender(const DragonRender& d)
 		{
 			data = d.data;
+			tid->getIdFromTid(gettid());
 		}
 
 		void operator()(const blocked_range<int>& r) const
@@ -111,14 +114,17 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	struct draw_data data;
 	limits_t limits;
 	char *dragon = NULL;
-	int dragon_width;
-	int dragon_height;
-	int dragon_surface;
 	int scale_x;
 	int scale_y;
 	int scale;
 	int deltaJ;
 	int deltaI;
+	int dragonWidth;
+	int dragonHeight;
+	int dragonSurface;
+
+	tid = new MapTid(nb_thread);
+	
 
 	struct palette *palette = init_palette(nb_thread);
 	if (palette == NULL)
@@ -129,14 +135,14 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	task_scheduler_init init(nb_thread);
 
-	dragon_width = limits.maximums.x - limits.minimums.x;
-	dragon_height = limits.maximums.y - limits.minimums.y;
-	dragon_surface = dragon_width * dragon_height;
-	scale_x = dragon_width / width + 1;
-	scale_y = dragon_height / height + 1;
+	scale_x = dragonWidth / width + 1;
+	scale_y = dragonWeight / height + 1;
 	scale = (scale_x > scale_y ? scale_x : scale_y);
-	deltaJ = (scale * width - dragon_width) / 2;
-	deltaI = (scale * height - dragon_height) / 2;
+	deltaJ = (scale * width - dragonWidth) / 2;
+	deltaI = (scale * height - dragonHeight) / 2;
+	dragonWidth =limits.maximums.x - limits.minimums.x;
+	dragonHeight = limits.maximums.y - limits.minimums.y;
+	dragonSurface = dragonWidth * height;
 
 	dragon = (char *) malloc(dragon_surface);
 	if (dragon == NULL) {
@@ -173,13 +179,14 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 
 	DragonRender render(&data);
 	parallel_for(blocked_range<int>(0, height), render);
+	tid.dump();
+	delete tid;
 	
 	init.terminate();
 
 	free_palette(palette);
 	FREE(data.tid);
 	*canvas = dragon;
-	//*canvas = NULL;
 	return 0;
 }
 
@@ -190,13 +197,11 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 int dragon_limits_tbb(limits_t *limits, uint64_t size, int nb_thread)
 {
 	//TODO("dragon_limits_tbb");
-	DragonLimits lim;
+	DragonLimits limit;
 
-	task_scheduler_init init(nb_thread);
-
-	parallel_reduce(blocked_range<int>(0, size), lim);
+	parallel_reduce(blocked_range<int>(0, size), limit);
 	
-	piece_t piece = lim.getPiece();
+	piece_t piece = limit.getPiece();
 	*limits = piece.limits;
 
 	return 0;
