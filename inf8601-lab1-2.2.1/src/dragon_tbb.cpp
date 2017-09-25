@@ -72,10 +72,7 @@ class DragonDraw
 				dragon_draw_raw(secondStart,secondEnd,data->dragon, data->dragon_width, data->dragon_height,data->limits, indexEnd);
 			}
 			else
-			{
-				dragon_draw_raw(r.begin(),r.end(),data->dragon, data->dragon_width, data->dragon_height,data->limits, indexStart);
-}		
-
+				dragon_draw_raw(r.begin(),r.end(),data->dragon, data->dragon_width, data->dragon_height,data->limits, indexStart);	
 		}
 		struct draw_data* data;
 };
