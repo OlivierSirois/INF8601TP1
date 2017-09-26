@@ -14,6 +14,7 @@
 
 #include "dragon.h"
 #include "color.h"
+//#include <sys/types.h>
 #include "dragon_pthread.h"
 
 pthread_mutex_t mutex_stdout;
@@ -48,22 +49,28 @@ void *dragon_draw_worker(void *data){
   //printf("start is %d, end is %d, i is %d\n",start, end, tdat->id);
   
 	/* 1. Initialiser la surface */
-  //on initialise avec nos variables
+  //on initialise avec nos variables dependamment du thread ou l'on se situe
   
   init_canvas(startcanvas, endcanvas, tdat->dragon, -1);
 	/* 2. Dessiner le dragon */
   //on dessine avec nos variables
+
+  //printf("nous sommes rendu au wait de la thread %d\n", tdat->id);
+  code_erreur = pthread_barrier_wait(tdat->barrier);
+  //printf("nous avons passer la barriere %d\n", tdat->id);
+
+  
   dragon_draw_raw(start, end, tdat->dragon, tdat->dragon_width, tdat->dragon_height, tdat->limits, tdat->id);
   
 	/* 3. Effectuer le rendu final */
 
-  /*
-  code_erreur = pthread_barrier_wait(tdat->barrier);
-  if(code_erreur){
-	printf("erreur dans la barriere %d",tdat->id);
+  /**/
+  
+  if(code_erreur != -1 && 0){
+    printf("erreur dans la barriere %d, code %d\n",tdat->id, code_erreur);
 	//goto err;
   }
-  */
+  
   return NULL;
 }
 
@@ -74,7 +81,6 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	pthread_t *threads = NULL;
 	pthread_barrier_t barrier;
 	pthread_attr_t Attr;
-	pthread_barrierattr_t bAttr;
 	limits_t lim;
 	struct draw_data info;
 	char *dragon = NULL;
@@ -94,7 +100,7 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	pthread_attr_setstacksize(&Attr, stacksize);
 	pthread_attr_setdetachstate(&Attr, PTHREAD_CREATE_JOINABLE);
 
-	data = malloc((sizeof(struct draw_data)) * (nb_thread));
+	data = malloc((sizeof(struct draw_data)) * (nb_thread+1));
 
 	
 	palette = init_palette(nb_thread);
@@ -102,7 +108,7 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 		goto err;
 
 	/* 1. Initialiser barrier. */
-	pthread_barrier_init(&barrier, &bAttr, nb_thread);
+	pthread_barrier_init(&barrier, NULL, nb_thread +1);
 	
 
 	if (dragon_limits_pthread(&lim, size, nb_thread) < 0)
@@ -158,7 +164,9 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	}
 
 	/* 3. Attendre la fin du traitement */
-	//pthread_barrier_wait(&barrier);
+	//printf("nous sommes rendu au wait de la main\n");
+	pthread_barrier_wait(&barrier);
+	//printf("nous avons passer la barrier de la main \n");
 	for(i = 0; i< nb_thread; i++){
 	  code_erreur = pthread_join(threads[i], &status);
 	  if(code_erreur){
@@ -168,7 +176,10 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	scale_dragon(0, height, image, width, height, dragon, info.dragon_width, info.dragon_height, palette);
 	/* 4. Destruction des variables (à compléter). */
 	//free(info);
-	//free(barrier);
+	free(status);
+	free(code_erreur);
+
+	//free(&info);
 
 done:
 	FREE(data);
@@ -185,9 +196,18 @@ err:
 
 void *dragon_limit_worker(void *data)
 {
-	struct limit_data *lim = (struct limit_data *) data;
-	piece_limit(lim->start, lim->end, &lim->piece);
-	return NULL;
+  int tid;
+
+  tid = gettid();
+
+  
+  struct limit_data *lim = (struct limit_data *) data;
+  
+  //cette ligne imprime le TID de la thread
+  printf("tid is %d\n", tid);
+  
+  piece_limit(lim->start, lim->end, &lim->piece);
+  return NULL;
 }
 
 /*
@@ -236,7 +256,7 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 	  //depart de chaque thread dans le terminal
 
 	  
-	  //printf("start is %d, end is %d, i is %d\n",thread_data[i].start, thread_data[i].end, thread_data[i].id);
+	  printf("start is %d, end is %d, id is %d\n",(int)thread_data[i].start, (int)thread_data[i].end, (int)thread_data[i].id);
 	}
 	// on creer nos threads avec dragon_limit_worker et nos differents points de depart
 	for(i = 0; i < nb_thread ; i++){
@@ -261,7 +281,7 @@ done:
 	FREE(thread_data);
 	*limits = master.limits;
 	return ret;
-err:
+ err:
 	ret = -1;
 	goto done;
 }
