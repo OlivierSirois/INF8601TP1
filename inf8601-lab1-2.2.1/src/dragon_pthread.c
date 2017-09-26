@@ -14,7 +14,8 @@
 
 #include "dragon.h"
 #include "color.h"
-//#include <sys/types.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "dragon_pthread.h"
 
 pthread_mutex_t mutex_stdout;
@@ -177,8 +178,6 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	/* 4. Destruction des variables (à compléter). */
 	//free(info);
 	free(status);
-	free(code_erreur);
-
 	//free(&info);
 
 done:
@@ -196,15 +195,13 @@ err:
 
 void *dragon_limit_worker(void *data)
 {
-  int tid;
 
-  tid = gettid();
 
   
   struct limit_data *lim = (struct limit_data *) data;
   
   //cette ligne imprime le TID de la thread
-  printf("tid is %d\n", tid);
+  printf("tid is %d\n", gettid());
   
   piece_limit(lim->start, lim->end, &lim->piece);
   return NULL;
@@ -263,6 +260,7 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 	  code_erreur = pthread_create(&threads[i],&ptAttr, dragon_limit_worker, (void *) &thread_data[i]);
 	  if (code_erreur){
 		printf("nous avons une erreur dans la thread %d",i);
+		goto err;
 	  }
 	}
 	//on join les threads lorsqu'ils ont finient le travaille et on merge les differents morceau.
@@ -270,6 +268,7 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 	  code_erreur = pthread_join(threads[i], &status);
 	  if(code_erreur){
 		printf("nous avons une erreur dans le join de la thread %d", i);
+		goto err;
 	  }
 	  piece_merge(&master, thread_data[i].piece);
 	}
@@ -281,7 +280,7 @@ done:
 	FREE(thread_data);
 	*limits = master.limits;
 	return ret;
- err:
+err:
 	ret = -1;
 	goto done;
 }
