@@ -195,9 +195,6 @@ err:
 
 void *dragon_limit_worker(void *data)
 {
-
-
-  
   struct limit_data *lim = (struct limit_data *) data;
   
   //cette ligne imprime le TID de la thread

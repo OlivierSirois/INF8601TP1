@@ -20,7 +20,7 @@ using namespace std;
 using namespace tbb;
 
 TidMap* tid;
-int nInterval = 0;
+int nIntervalle = 0;
 
 
 class DragonLimits {
@@ -88,7 +88,7 @@ class DragonRender
 		{
 			data = d.data;
 			tid->getIdFromTid(gettid());
-			nInterval++;
+			nIntervalle++;
 		}
 
 		void operator()(const blocked_range<int>& r) const
@@ -188,7 +188,7 @@ int dragon_draw_tbb(char **canvas, struct rgb *image, int width, int height, uin
 	parallel_for(blocked_range<int>(0, height), render);
 	cout << "Thread TBB : ";
 	tid->dump();
-	cout << "Nombre d'interval TBB : " << nInterval << endl;
+	cout << "Nombre d'intervalle TBB : " << nIntervalle << endl;
 	delete tid;
 	
 	init.terminate();
@@ -206,8 +206,10 @@ int dragon_limits_tbb(limits_t *limits, uint64_t size, int nb_thread)
 {
 	//TODO("dragon_limits_tbb");
 	DragonLimits limit;
+	task_scheduler_init init(nb_thread);
 	parallel_reduce(blocked_range<int>(0, size), limit);
 	piece_t piece = limit.getPiece();
 	*limits = piece.limits;
+	init.terminate();
 	return 0;
 }
