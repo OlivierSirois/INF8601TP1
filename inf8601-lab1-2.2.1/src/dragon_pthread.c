@@ -15,9 +15,10 @@
 #include "dragon.h"
 #include "color.h"
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include "dragon_pthread.h"
-
+int gettid(void);
 pthread_mutex_t mutex_stdout;
 
 void printf_threadsafe(char *format, ...)
@@ -60,6 +61,11 @@ void *dragon_draw_worker(void *data){
   code_erreur = pthread_barrier_wait(tdat->barrier);
   //printf("nous avons passer la barriere %d\n", tdat->id);
 
+  if(code_erreur != -1 && 0){
+    //error handling de la barriere, cependant selon les man pages de barrier_wait, ne devrait jamais se produire
+    printf("erreur dans la barriere %d, code %d\n",tdat->id, code_erreur);
+  }
+
   
   dragon_draw_raw(start, end, tdat->dragon, tdat->dragon_width, tdat->dragon_height, tdat->limits, tdat->id);
   
@@ -67,10 +73,7 @@ void *dragon_draw_worker(void *data){
 
   /**/
   
-  if(code_erreur != -1 && 0){
-    printf("erreur dans la barriere %d, code %d\n",tdat->id, code_erreur);
-	//goto err;
-  }
+  
   
   return NULL;
 }
@@ -91,7 +94,6 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	struct draw_data *data = NULL;
 	struct palette *palette = NULL;
 	int ret = 0;
-	//int r;
 	void * status;
 	int code_erreur;
 
@@ -161,6 +163,7 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	  code_erreur = pthread_create(&threads[i], &Attr, dragon_draw_worker, (void *) &data[i]);
 	  if(code_erreur){
 		printf("erreur dans la creation de la thread %d dans draw_dragon_pthread, code %d \n",i, code_erreur);
+		goto err;
 	  }
 	}
 
@@ -172,14 +175,16 @@ int dragon_draw_pthread(char **canvas, struct rgb *image, int width, int height,
 	  code_erreur = pthread_join(threads[i], &status);
 	  if(code_erreur){
 		printf("erreur dans le join de la thread %d dans draw_dragon_pthread, erreur code %d \n", i, code_erreur);
+		goto err;
 	  }
 	}
 	scale_dragon(0, height, image, width, height, dragon, info.dragon_width, info.dragon_height, palette);
 	/* 4. Destruction des variables (à compléter). */
-	//free(info);
-	free(status);
-	//free(&info);
 
+	/*la plupart des variable a detruire sont tous dans "done", la seule exception etant status et info. info genere une erreur de segmentation si on la detruit alors 
+	  j'assume qu'elle est utiliser ailleur. */
+	free(status);
+	goto done;
 done:
 	FREE(data);
 	FREE(threads);
@@ -198,7 +203,7 @@ void *dragon_limit_worker(void *data)
   struct limit_data *lim = (struct limit_data *) data;
   
   //cette ligne imprime le TID de la thread
-  printf("tid is %d\n", gettid());
+  printf("tid of thread is %d\n",(int) gettid());
   
   piece_limit(lim->start, lim->end, &lim->piece);
   return NULL;
@@ -248,9 +253,9 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 
 	  //cette ligne sert a debugger les differentes threads, veuillez enlever le comment pour voir les points de
 	  //depart de chaque thread dans le terminal
-
 	  
-	  printf("start is %d, end is %d, id is %d\n",(int)thread_data[i].start, (int)thread_data[i].end, (int)thread_data[i].id);
+	  
+	  printf("start is %d, end is %d, id of thread is %d\n",(int)thread_data[i].start, (int)thread_data[i].end, (int)thread_data[i].id);
 	}
 	// on creer nos threads avec dragon_limit_worker et nos differents points de depart
 	for(i = 0; i < nb_thread ; i++){
@@ -271,7 +276,7 @@ int dragon_limits_pthread(limits_t *limits, uint64_t size, int nb_thread)
 	}
 	
 	/* 3. Attendre la fin du traitement. */
-
+	goto done;
 done:
 	FREE(threads);
 	FREE(thread_data);
